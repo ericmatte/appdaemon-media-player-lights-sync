@@ -73,7 +73,12 @@ class MediaLightsSync(hass.Hass):
                 if color == [0, 0, 0] or len(color) == 0:
                     self.log("Skipped black color for '{entity}' light".format(entity=self.lights[i]))
                     continue
-                self.set_light("on", self.lights[i], color=color, brightness=self.brightness, transition=self.transition)
+                attributes = self.initial_lights_states[i]["attributes"]
+                color_attr = attributes["supported_color_modes"]
+                if color_attr != None and ("color_temp" in color_attr) and (color[0] >= 220 and color[1] >= 220 and color[2] >= 220):
+                        self.set_light("on",self.lights[i],color=40000,color_attr="color_temp_kelvin", brightness=self.brightness, transition=self.transition)
+                else:
+                    self.set_light("on", self.lights[i], color=color, brightness=self.brightness, transition=self.transition)
         else:
             self.reset_lights()
 
@@ -124,7 +129,17 @@ class MediaLightsSync(hass.Hass):
     def get_saturated_color(self, color):
         """Increase the saturation of the current color."""
         hls = colorsys.rgb_to_hls(color[0] / 255, color[1] / 255, color[2] / 255)
-        rgb_saturated = colorsys.hls_to_rgb(hls[0], 0.5, 0.5)
+        hue = hls[0]
+        lightness = hls[1]
+        saturation = hls[2]
+        self.log("Getting saturated color of RGB:[{r},{g},{b}], HSL: [{h},{s},{l}]".format(r=color[0], g = color[1], b = color[2], h = hls[0], s = hls[2], l = hls[1]))
+        if saturation < 0.05:
+            lightness = 1
+        else:
+            saturation = max(saturation, 0.5)
+            lightness = max(lightness, 0.5)
+        rgb_saturated = colorsys.hls_to_rgb(hue, lightness, saturation)
+        self.log("Saturated color is: RGB:[{r},{g},{b}], HSL: [{h},{s},{l}]".format(r=rgb_saturated[0]*255, g = rgb_saturated[1]*255, b = rgb_saturated[2]*255, h = hue, s = saturation, l = lightness))
         return [int(rgb_saturated[0] * 255), int(rgb_saturated[1] * 255), int(rgb_saturated[2] * 255)]
 
     def get_colors(self, url):
